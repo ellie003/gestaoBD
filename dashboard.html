@@ -13,7 +13,7 @@
       display: flex;
       justify-content: center;
       align-items: center;
-      height: 100vh;
+      height: 150vh;
     }
     .container {
       background-color: white;
@@ -24,12 +24,11 @@
       text-align: center;
     }
 
-    .usuarioBV{
+    .usuarioBV {
       position: absolute;
       top: 10px;
       right: 10px;
       margin: 10px;
-
     }
 
     h2 {
@@ -50,6 +49,28 @@
     th {
       background-color: #f2f2f2;
     }
+    form {
+      margin-bottom: 20px;
+    }
+    input, select {
+      margin-bottom: 10px;
+      padding: 8px;
+      width: calc(100% - 20px);
+    }
+    button {
+      padding: 10px 20px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    .delete-button {
+      background-color: #ff4c4c;
+      color: white;
+      border: none;
+      padding: 5px 10px;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
@@ -58,21 +79,52 @@
     <p>Email: {{ user.email }}</p>
   </div>
   <div class="container">
-    <h3>Consumo de Energia</h3>
+    <h3>Adicionar Dispositivo</h3>
+    <form action="{{ url_for('add_dispositivo') }}" method="POST">
+      <input type="text" name="nome" placeholder="Nome do Dispositivo" required>
+      <input type="text" name="tipo" placeholder="Tipo (Energetico ou Hidrico)" required>
+      <input type="text" name="comodo" placeholder="Cômodo" required>
+      <button type="submit">Adicionar Dispositivo</button>
+    </form>
+    <h3>Adicionar Consumo</h3>
+    <form action="{{ url_for('add_consumo') }}" method="POST">
+      <input type="date" name="data" required>
+      <input type="time" name="hora" required>
+      <input type="number" name="quantidade" placeholder="Quantidade (Kwh ou m³)" required>
+      <input type="text" name="recurso" placeholder="Recurso (Energetico ou Hidrico)" required>
+      <select name="dispositivo" required>
+        {% for dispositivo in dispositivos %}
+        <option value="{{ dispositivo[0] }}">{{ dispositivo[1] }}</option>
+        {% endfor %}
+      </select>
+      <button type="submit">Adicionar Consumo</button>
+    </form>
+    <h3>Consumo de Energia e Dispositivos</h3>
     <table>
       <tr>
         <th>Data</th>
         <th>Hora</th>
-        <th>Quantidade</th>
-        <th>Recurso</th>
+        <th>Quantidade de Kwh</th>
+        <th>Recurso (Energetico ou Hidrica)</th>
         <th>Dispositivo</th>
+        <th>Tipo de Dispositivo</th>
+        <th>Cômodo</th>
+        <th>Ações</th>
       </tr>
       {% for item in user.consumo %}
       <tr>
-        <td>{{ item[0] }}</td>
         <td>{{ item[1] }}</td>
-        <td>{{ item[2] }} {{ item[3] }}</td>
+        <td>{{ item[2] }}</td>
+        <td>{{ item[3] }}</td>
         <td>{{ item[4] }}</td>
+        <td>{{ item[5] }}</td>
+        <td>{{ item[6] }}</td>
+        <td>{{ item[7] }}</td>
+        <td>
+          <form action="{{ url_for('delete_consumo', id=item[0]) }}" method="POST" style="display:inline;">
+            <button type="submit" class="delete-button">Deletar</button>
+          </form>
+        </td>
       </tr>
       {% endfor %}
     </table>
