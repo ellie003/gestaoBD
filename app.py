@@ -21,14 +21,26 @@ def form():
 def submit():
     username = request.form['username']
     email = request.form['email']
+    telefone = request.form['telefone']
     password = request.form['password']
+    cep = request.form['cep']
+    rua = request.form['rua']
+    bairro = request.form['bairro']
+    cidade = request.form['cidade']
+    uf = request.form['uf']
 
     hashed_password = generate_password_hash(password)
 
     conn = connect_db()
     cursor = conn.cursor()
 
-    cursor.execute("INSERT INTO usuarios (nome, email, senha) VALUES (%s, %s, %s)", (username, email, hashed_password))
+    cursor.execute("INSERT INTO Usuarios (nome, email, senha) VALUES (%s, %s, %s) RETURNING ID_user", (username, email, hashed_password))
+    user_id = cursor.fetchone()[0]
+    
+    cursor.execute("INSERT INTO Telefones (ID_user, telefone) VALUES (%s, %s)", (user_id, telefone))
+    
+    cursor.execute("INSERT INTO Endereco (ID_user, cep, rua, bairro, cidade, uf) VALUES (%s, %s, %s, %s, %s, %s)", 
+                   (user_id, cep, rua, bairro, cidade, uf))
     conn.commit()
 
     cursor.close()
@@ -45,7 +57,7 @@ def login():
         conn = connect_db()
         cursor = conn.cursor()
 
-        cursor.execute("SELECT * FROM usuarios WHERE email = %s", (email,))
+        cursor.execute("SELECT * FROM Usuarios WHERE email = %s", (email,))
         user = cursor.fetchone()
 
         cursor.close()
@@ -70,8 +82,92 @@ def dashboard():
             'username': session['username'],
             'email': session['email']
         }
-        return render_template('dashboard.html', user=user_info)
+
+        conn = connect_db()
+        cursor = conn.cursor()
+
+        # Consulta para obter consumo e detalhes do dispositivo
+        cursor.execute("""
+        SELECT 
+        c.id_consumo, 
+        c.data, 
+        c.hora, 
+        c.quantidade, 
+        c.recurso, 
+        d.nome AS dispositivo_nome, 
+        d.tipo AS dispositivo_tipo, 
+        d.comodo AS dispositivo_comodo 
+    FROM 
+        Consumo c
+    JOIN 
+        Dispositivos d ON CAST(c.dispositivo AS INTEGER) = d.id_dispositivo
+""")
+        consumo = cursor.fetchall()
+
+        # Consulta para obter dispositivos
+        cursor.execute("SELECT id_dispositivo, nome FROM Dispositivos")
+        dispositivos = cursor.fetchall()
+
+        cursor.close()
+        conn.close()
+
+        user_info['consumo'] = [(str(item[0]), item[1].strftime('%Y-%m-%d'), item[2].strftime('%H:%M:%S'), item[3], item[4], item[5], item[6], item[7]) for item in consumo]
+        user_info['dispositivos'] = [(str(item[0]), item[1]) for item in dispositivos]
+
+        return render_template('dashboard.html', user=user_info, dispositivos=dispositivos)
     return redirect(url_for('login'))
+
+@app.route('/add_dispositivo', methods=['POST'])
+def add_dispositivo():
+    nome = request.form['nome']
+    tipo = request.form['tipo']
+    comodo = request.form['comodo']
+
+    conn = connect_db()
+    cursor = conn.cursor()
+
+    cursor.execute("INSERT INTO Dispositivos (nome, tipo, comodo) VALUES (%s, %s, %s)", 
+                   (nome, tipo, comodo))
+    conn.commit()
+
+    cursor.close()
+    conn.close()
+
+    return redirect(url_for('dashboard'))
+
+@app.route('/add_consumo', methods=['POST'])
+def add_consumo():
+    data = request.form['data']
+    hora = request.form['hora']
+    quantidade = request.form['quantidade']
+    recurso = request.form['recurso']
+    dispositivo = request.form['dispositivo']
+
+    conn = connect_db()
+    cursor = conn.cursor()
+
+    cursor.execute("INSERT INTO Consumo (data, hora, quantidade, recurso, dispositivo) VALUES (%s, %s, %s, %s, %s)", 
+                   (data, hora, quantidade, recurso, dispositivo))
+    conn.commit()
+
+    cursor.close()
+    conn.close()
+
+    return redirect(url_for('dashboard'))
+
+@app.route('/delete_consumo/<int:id>', methods=['POST'])
+def delete_consumo(id):
+    conn = connect_db()
+    cursor = conn.cursor()
+
+    cursor.execute("DELETE FROM Consumo WHERE id_consumo = %s", (id,))
+    conn.commit()
+
+    cursor.close()
+    conn.close()
+
+    return redirect(url_for('dashboard'))
 
 if __name__ == '__main__':
     app.run(debug=True)
+
