@@ -49,6 +49,28 @@ def submit():
 
     return 'Dados recebidos e inseridos com sucesso'
 
+def alter_table_add_columns():
+    conn = connect_db()
+    cursor = conn.cursor()
+
+    # Adicionar a coluna ID_user, se não existir
+    cursor.execute("""
+    ALTER TABLE Dispositivos
+    ADD COLUMN IF NOT EXISTS ID_user INTEGER REFERENCES Usuarios(ID_user)
+    """)
+
+    # Adicionar a coluna status, se não existir
+    cursor.execute("""
+    ALTER TABLE Dispositivos
+    ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'desligado'
+    """)
+
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+alter_table_add_columns()  # Chama a função para alterar a tabela quando o aplicativo inicializa
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -61,13 +83,18 @@ def login():
         cursor.execute("SELECT * FROM Usuarios WHERE email = %s", (email,))
         user = cursor.fetchone()
 
-        cursor.close()
-        conn.close()
-
         if user and check_password_hash(user[3], password):  
             session['user_id'] = user[0]
             session['username'] = user[1]
             session['email'] = user[2]
+
+            # Iniciar dispositivos associados ao usuário
+            cursor.execute("UPDATE Dispositivos SET status = 'iniciado' WHERE ID_user = %s", (user[0],))
+            conn.commit()
+
+            cursor.close()
+            conn.close()
+
             flash('Login realizado com sucesso!', 'success')
             return redirect(url_for('dashboard'))
 
@@ -83,11 +110,12 @@ def dashboard():
             'username': session['username'],
             'email': session['email']
         }
+        user_id = session['user_id']
 
         conn = connect_db()
         cursor = conn.cursor()
 
-        # Consulta para obter consumo e detalhes do dispositivo
+        # Consulta para obter consumo e detalhes do dispositivo do usuário logado
         cursor.execute("""
         SELECT 
         c.id_consumo, 
@@ -102,11 +130,13 @@ def dashboard():
             Consumo c
         JOIN 
             Dispositivos d ON CAST(c.dispositivo AS INTEGER) = d.id_dispositivo
-        """)
+        WHERE 
+            d.ID_user = %s
+        """, (user_id,))
         consumo = cursor.fetchall()
 
-        # Consulta para obter dispositivos
-        cursor.execute("SELECT id_dispositivo, nome FROM Dispositivos")
+        # Consulta para obter dispositivos do usuário logado
+        cursor.execute("SELECT id_dispositivo, nome FROM Dispositivos WHERE ID_user = %s", (user_id,))
         dispositivos = cursor.fetchall()
 
         # Dados Ideais
@@ -195,12 +225,13 @@ def add_dispositivo():
     nome = request.form['nome']
     tipo = request.form['tipo']
     comodo = request.form['comodo']
+    user_id = session['user_id']
 
     conn = connect_db()
     cursor = conn.cursor()
 
-    cursor.execute("INSERT INTO Dispositivos (nome, tipo, comodo) VALUES (%s, %s, %s)", 
-                   (nome, tipo, comodo))
+    cursor.execute("INSERT INTO Dispositivos (nome, tipo, comodo, ID_user) VALUES (%s, %s, %s, %s)", 
+                   (nome, tipo, comodo, user_id))
     conn.commit()
 
     cursor.close()
@@ -215,12 +246,13 @@ def add_consumo():
     quantidade = request.form['quantidade']
     recurso = request.form['recurso']
     dispositivo = request.form['dispositivo']
+    user_id = session['user_id']
 
     conn = connect_db()
     cursor = conn.cursor()
 
-    cursor.execute("INSERT INTO Consumo (data, hora, quantidade, recurso, dispositivo) VALUES (%s, %s, %s, %s, %s)", 
-                   (data, hora, quantidade, recurso, dispositivo))
+    cursor.execute("INSERT INTO Consumo (data, hora, quantidade, recurso, dispositivo, ID_user) VALUES (%s, %s, %s, %s, %s, %s)", 
+                   (data, hora, quantidade, recurso, dispositivo, user_id))
     conn.commit()
 
     cursor.close()
@@ -228,12 +260,14 @@ def add_consumo():
 
     return redirect(url_for('dashboard'))
 
+
 @app.route('/delete_consumo/<int:id>', methods=['POST'])
 def delete_consumo(id):
+    user_id = session['user_id']
     conn = connect_db()
     cursor = conn.cursor()
 
-    cursor.execute("DELETE FROM Consumo WHERE id_consumo = %s", (id,))
+    cursor.execute("DELETE FROM Consumo WHERE id_consumo = %s AND ID_user = %s", (id, user_id))
     conn.commit()
 
     cursor.close()
@@ -243,5 +277,6 @@ def delete_consumo(id):
 
 if __name__ == '__main__':
     app.run(debug=True)
+
 
 
