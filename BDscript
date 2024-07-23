@@ -1,0 +1,107 @@
+CREATE TABLE Usuarios (
+    ID_user SERIAL PRIMARY KEY,
+    nome VARCHAR(100) NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    senha VARCHAR(255) NOT NULL,
+    tipo_user VARCHAR(20) NOT NULL CHECK (tipo_user IN ('PF', 'PJ', 'ADM')),
+    cpf VARCHAR(11) UNIQUE,
+    cnpj VARCHAR(14) UNIQUE
+);
+
+CREATE TABLE Endereco (
+    ID_user INT PRIMARY KEY,
+    cep VARCHAR(8) NOT NULL,
+    rua VARCHAR(100) NOT NULL,
+    bairro VARCHAR(50) NOT NULL,
+    cidade VARCHAR(50) NOT NULL,
+    uf CHAR(2) NOT NULL,
+    FOREIGN KEY (ID_user) REFERENCES Usuarios(ID_user)
+);
+
+CREATE TABLE Telefones (
+    ID_user INT NOT NULL,
+    telefone VARCHAR(15) NOT NULL,
+    PRIMARY KEY (ID_user, telefone),
+    FOREIGN KEY (ID_user) REFERENCES Usuarios(ID_user)
+);
+
+CREATE TABLE Recursos (
+    ID_recurso SERIAL PRIMARY KEY,
+    tipo VARCHAR(50) NOT NULL,
+    unidade_medida VARCHAR(20) NOT NULL
+);
+
+CREATE TABLE Dispositivos (
+    ID_dispositivo SERIAL PRIMARY KEY,
+    nome VARCHAR(100) NOT NULL,
+    tipo VARCHAR(50) NOT NULL,
+    comodo VARCHAR(50) NOT NULL
+);
+
+CREATE TABLE Consumo (
+    ID_consumo SERIAL PRIMARY KEY,
+    ID_recurso INT NOT NULL,
+    ID_dispositivo INT NOT NULL,
+    quantidade DECIMAL(10, 2) NOT NULL,
+    data DATE NOT NULL,
+    hora TIME NOT NULL,
+    FOREIGN KEY (ID_recurso) REFERENCES Recursos(ID_recurso),
+    FOREIGN KEY (ID_dispositivo) REFERENCES Dispositivos(ID_dispositivo)
+);
+
+CREATE TABLE Relatorios (
+    ID_relatorio SERIAL PRIMARY KEY,
+    conteudo TEXT NOT NULL,
+    data DATE NOT NULL,
+    hora TIME NOT NULL
+);
+
+CREATE TABLE Notificacoes (
+    ID_alert SERIAL PRIMARY KEY,
+    mensagem TEXT NOT NULL,
+    data DATE NOT NULL,
+    hora TIME NOT NULL
+);
+
+-- Tabelas intermediárias para relacionamentos muitos para muitos
+CREATE TABLE Usuario_Dispositivo (
+    ID_user INT NOT NULL,
+    ID_dispositivo INT NOT NULL,
+    PRIMARY KEY (ID_user, ID_dispositivo),
+    FOREIGN KEY (ID_user) REFERENCES Usuarios(ID_user),
+    FOREIGN KEY (ID_dispositivo) REFERENCES Dispositivos(ID_dispositivo)
+);
+
+CREATE TABLE Usuario_Consumo (
+    ID_user INT NOT NULL,
+    ID_consumo INT NOT NULL,
+    PRIMARY KEY (ID_user, ID_consumo),
+    FOREIGN KEY (ID_user) REFERENCES Usuarios(ID_user),
+    FOREIGN KEY (ID_consumo) REFERENCES Consumo(ID_consumo)
+);
+
+-- Permitir valores nulos na coluna tipo_user
+ALTER TABLE Usuarios
+    ALTER COLUMN tipo_user DROP NOT NULL;
+
+-- Remover a restrição CHECK existente
+ALTER TABLE Usuarios
+    DROP CONSTRAINT IF EXISTS tipo_user_check;
+
+-- Adicionar a nova restrição CHECK que permite valores nulos
+ALTER TABLE Usuarios
+    ADD CONSTRAINT tipo_user_check CHECK (tipo_user IS NULL OR tipo_user IN ('PF', 'PJ', 'ADM'));
+
+SELECT * FROM Usuarios;
+
+ALTER TABLE consumo
+ADD COLUMN recurso VARCHAR(255);
+
+ALTER TABLE consumo
+ADD COLUMN dispositivo VARCHAR(255);
+
+ALTER TABLE consumo
+ALTER COLUMN id_recurso DROP NOT NULL;
+
+ALTER TABLE consumo
+ALTER COLUMN id_dispositivo DROP NOT NULL;
